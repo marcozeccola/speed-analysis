@@ -226,12 +226,12 @@ if __name__ == '__main__' and False:
         json.dump(pose_sequence, f)
 
 # Note: this should go into a config file instead in production
-_PATH_TO_MODEL = r"C:\Users\picul\PycharmProjects\ClimberCUDA\runs\detect\yolo_speedclimbing_hyper_tune48\weights\best.pt"
-_PATH_TO_FOOTAGE = r"C:\Users\picul\Downloads\doublefoot.mp4"
+_PATH_TO_MODEL = r"C:\Users\marco\OneDrive\Documenti\speed-analysis\best.pt"
+_PATH_TO_FOOTAGE = r"C:\Users\marco\OneDrive\Documenti\speed-analysis\videos\video9.mp4"
 
 if __name__ == '__main__':
     try:
-        model = YOLO(r"C:\Users\picul\PycharmProjects\ClimberCUDA\runs\detect\yolo_speedclimbing_hyper_tune48\weights\best.pt")
+        model = YOLO(r"C:\Users\marco\OneDrive\Documenti\speed-analysis\best.pt")
     except FileNotFoundError:
         print("ERROR: Failed to import the model. Please ensure that the correct path to the"
               " best.pt file is provided into " + _PATH_TO_MODEL.__name__)
