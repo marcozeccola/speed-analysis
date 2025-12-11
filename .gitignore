@@ -2,3 +2,6 @@
 /runs/detect/yolo_speedclimbing2
 /imgs
 /toextract
+/old_stuff/imgs
+/old_stuff/toextract
+/old_stuff/dataset

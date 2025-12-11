@@ -1,0 +1,9 @@
+apri wls 
+redis-server
+
+apri cmd
+cd C:\Users\marco\OneDrive\Documenti\speed-analysis\.conda
+conda activate c:\Users\marco\OneDrive\Documenti\speed-analysis\.conda
+uvicorn server.main:app --reload
+celery -A server.tasks worker -l info -P solo
+http://127.0.0.1:8000/docs
