@@ -6,6 +6,11 @@ from .tasks import analyze_climbing_videos_task, app as celery_app
 
 app = FastAPI()
 
+
+PATH_TO_MODEL = r"path/to/model"
+main_model = YOLO(PATH_TO_MODEL)
+set_model( main_model )
+
 @app.get("/api/health")
 def health_check():
     """ Verifica che l'API sia attiva. """
