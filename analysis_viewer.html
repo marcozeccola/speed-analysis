@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>Analisi Climbing - Visualizzazione Dati</title>
+     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+     <style>
+          * {
+               margin: 0;
+               padding: 0;
+               box-sizing: border-box;
+          }
+
+          body {
+               font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+               background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+               min-height: 100vh;
+               padding: 20px;
+          }
+
+          .container {
+               max-width: 1200px;
+               margin: 0 auto;
+          }
+
+          .header {
+               background: white;
+               border-radius: 12px;
+               padding: 30px;
+               margin-bottom: 30px;
+               box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+          }
+
+          .header h1 {
+               color: #333;
+               margin-bottom: 20px;
+               font-size: 2.5em;
+          }
+
+          .input-group {
+               display: flex;
+               gap: 10px;
+               flex-wrap: wrap;
+               align-items: center;
+          }
+
+          .input-group input {
+               flex: 1;
+               min-width: 250px;
+               padding: 12px;
+               border: 2px solid #ddd;
+               border-radius: 6px;
+               font-size: 16px;
+               transition: border-color 0.3s;
+          }
+
+          .input-group input:focus {
+               outline: none;
+               border-color: #667eea;
+          }
+
+          .input-group button,
+          .input-group select {
+               padding: 12px 30px;
+               background: #667eea;
+               color: white;
+               border: none;
+               border-radius: 6px;
+               cursor: pointer;
+               font-size: 16px;
+               font-weight: bold;
+               transition: background 0.3s;
+          }
+
+          .input-group select {
+               appearance: none;
+               padding-right: 40px;
+               background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+               background-repeat: no-repeat;
+               background-position: right 12px center;
+               padding-right: 35px;
+          }
+
+          .input-group button:hover,
+          .input-group select:hover {
+               background-color: #764ba2;
+          }
+
+          .status {
+               padding: 15px;
+               border-radius: 6px;
+               margin-top: 15px;
+               display: none;
+               font-weight: bold;
+          }
+
+          .status.loading {
+               display: block;
+               background: #e3f2fd;
+               color: #1976d2;
+               animation: pulse 1.5s infinite;
+          }
+
+          .status.success {
+               display: block;
+               background: #e8f5e9;
+               color: #388e3c;
+          }
+
+          .status.error {
+               display: block;
+               background: #ffebee;
+               color: #c62828;
+          }
+
+          @keyframes pulse {
+
+               0%,
+               100% {
+                    opacity: 1;
+               }
+
+               50% {
+                    opacity: 0.7;
+               }
+          }
+
+          .info-grid {
+               display: grid;
+               grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+               gap: 15px;
+               margin-top: 20px;
+          }
+
+          .info-card {
+               background: #f5f5f5;
+               padding: 15px;
+               border-radius: 6px;
+               border-left: 4px solid #667eea;
+          }
+
+          .info-card label {
+               font-weight: bold;
+               color: #666;
+               display: block;
+               font-size: 12px;
+               margin-bottom: 5px;
+          }
+
+          .info-card span {
+               font-size: 18px;
+               color: #333;
+               word-break: break-all;
+          }
+
+          .charts-container {
+               display: grid;
+               gap: 30px;
+               margin-top: 30px;
+          }
+
+          .landmark-group {
+               background: white;
+               border-radius: 12px;
+               padding: 25px;
+               box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+          }
+
+          .landmark-group h2 {
+               color: #333;
+               margin-bottom: 20px;
+               padding-bottom: 15px;
+               border-bottom: 2px solid #667eea;
+               font-size: 1.5em;
+          }
+
+          .chart-wrapper {
+               position: relative;
+               height: 400px;
+               margin-bottom: 30px;
+          }
+
+          .landmark-name {
+               display: inline-block;
+               background: #667eea;
+               color: white;
+               padding: 5px 15px;
+               border-radius: 20px;
+               font-size: 14px;
+               margin-right: 10px;
+          }
+
+          .confidence-bar {
+               width: 100%;
+               height: 20px;
+               background: #e0e0e0;
+               border-radius: 10px;
+               margin: 20px 0;
+               overflow: hidden;
+          }
+
+          .confidence-fill {
+               height: 100%;
+               background: linear-gradient(90deg, #667eea, #764ba2);
+               border-radius: 10px;
+               transition: width 0.3s;
+               display: flex;
+               align-items: center;
+               justify-content: flex-end;
+               padding-right: 10px;
+               color: white;
+               font-size: 12px;
+               font-weight: bold;
+          }
+
+          .no-data {
+               text-align: center;
+               padding: 40px;
+               color: #999;
+               font-size: 18px;
+          }
+
+          .landmark-group.hidden {
+               display: none;
+          }
+
+          .video-player-section {
+               background: white;
+               border-radius: 12px;
+               padding: 20px;
+               margin-bottom: 30px;
+               box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+               display: none;
+          }
+
+          .video-player-section.active {
+               display: block;
+          }
+
+          .video-grid {
+               display: grid;
+               grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+               gap: 20px;
+               margin-bottom: 20px;
+          }
+
+          .video-container {
+               background: #000;
+               border-radius: 8px;
+               overflow: hidden;
+          }
+
+          .video-container video {
+               width: 100%;
+               height: auto;
+               display: block;
+               max-height: 400px;
+          }
+
+          .video-label {
+               background: #667eea;
+               color: white;
+               padding: 8px 12px;
+               font-weight: bold;
+               font-size: 14px;
+               text-align: center;
+          }
+
+          .comparison-controls {
+               display: flex;
+               gap: 15px;
+               align-items: center;
+               margin-bottom: 20px;
+               flex-wrap: wrap;
+          }
+
+          .toggle-group {
+               display: flex;
+               gap: 10px;
+               align-items: center;
+          }
+
+          .toggle-group label {
+               display: flex;
+               align-items: center;
+               gap: 8px;
+               cursor: pointer;
+               font-weight: bold;
+               color: #333;
+          }
+
+          .toggle-group input[type="radio"] {
+               cursor: pointer;
+               width: 18px;
+               height: 18px;
+          }
+
+          @media (max-width: 768px) {
+               .header h1 {
+                    font-size: 1.8em;
+               }
+
+               .input-group {
+                    flex-direction: column;
+               }
+
+               .input-group input,
+               .input-group button {
+                    width: 100%;
+               }
+
+               .chart-wrapper {
+                    height: 300px;
+               }
+          }
+     </style>
+</head>
+
+<body>
+     <div class="container">
+          <div class="header">
+               <h1>📊 Analisi Video Climbing</h1>
+
+               <!-- Sezione Upload Video -->
+               <div
+                    style="margin-bottom: 25px; padding: 20px; background: #f9f9f9; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <h3 style="margin-bottom: 15px; color: #333;">📹 Carica Video per Analisi</h3>
+                    <div class="input-group">
+                         <input type="file" id="videoFile1" accept="video/*" placeholder="Video 1..."
+                              style="padding: 12px; border: 2px solid #ddd;">
+                         <input type="file" id="videoFile2" accept="video/*" placeholder="Video 2 (opzionale)..."
+                              style="padding: 12px; border: 2px solid #ddd;">
+                         <button onclick="uploadVideos()">Avvia Analisi</button>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                         💡 Carica 1 video per analisi singola, 2 video per confronto
+                    </div>
+               </div>
+
+               <!-- Sezione Carica Risultati Esistenti -->
+               <div
+                    style="margin-bottom: 25px; padding: 20px; background: #f9f9f9; border-radius: 8px; border-left: 4px solid #764ba2;">
+                    <h3 style="margin-bottom: 15px; color: #333;">📊 Visualizza Risultati Esistenti</h3>
+                    <div class="input-group">
+                         <input type="text" id="jobId" placeholder="Inserisci Job ID per visualizzare i risultati...">
+                         <button onclick="loadResults()">Carica Risultati</button>
+                         <select id="landmarkFilter" onchange="filterLandmark()" style="display: none;">
+                              <option value="">-- Seleziona Landmark --</option>
+                         </select>
+                    </div>
+               </div>
+
+               <div id="status" class="status"></div>
+               <div class="info-grid" id="infoGrid" style="display: none;">
+                    <div class="info-card">
+                         <label>Job ID</label>
+                         <span id="displayJobId">-</span>
+                    </div>
+                    <div class="info-card">
+                         <label>Status</label>
+                         <span id="displayStatus">-</span>
+                    </div>
+                    <div class="info-card">
+                         <label>Frame Rate (FPS)</label>
+                         <span id="displayFps">-</span>
+                    </div>
+                    <div class="info-card">
+                         <label>Numero Frames</label>
+                         <span id="displayFrames">-</span>
+                    </div>
+                    <div class="info-card">
+                         <label>Confidence Media</label>
+                         <span id="displayConfidence">-</span>
+                    </div>
+               </div>
+          </div>
+
+          <div id="videoPlayerSection" class="video-player-section">
+               <h2 style="margin-bottom: 20px;">📹 Visualizzazione Video</h2>
+               <div id="videoGrid" class="video-grid"></div>
+
+               <div id="comparisonControls" class="comparison-controls" style="display: none;">
+                    <span style="font-weight: bold; color: #333;">Modalità Confronto:</span>
+                    <div class="toggle-group">
+                         <label>
+                              <input type="radio" name="comparisonMode" value="overlapped" onchange="updateChartMode()"
+                                   checked>
+                              Sovrapposti
+                         </label>
+                         <label>
+                              <input type="radio" name="comparisonMode" value="separate" onchange="updateChartMode()">
+                              Separati
+                         </label>
+                    </div>
+               </div>
+          </div>
+
+          <div id="chartsContainer" class="charts-container"></div>
+     </div>
+
+     <script>
+          // Landmark names
+          const landmarkNames = {
+               '-1': 'Centro Corpo',
+               '0': 'Naso',
+               '15': 'Polso Sinistro',
+               '16': 'Polso Destro',
+               '25': 'Ginocchio Sinistro',
+               '26': 'Ginocchio Destro',
+               '27': 'Caviglia Sinistra',
+               '28': 'Caviglia Destra'
+          };
+
+          // Colori per i grafici
+          const colors = {
+               pos: 'rgba(102, 126, 234, 1)',
+               vel: 'rgba(118, 75, 162, 1)',
+               posLight: 'rgba(102, 126, 234, 0.1)',
+               velLight: 'rgba(118, 75, 162, 0.1)',
+               pos2: 'rgba(255, 107, 107, 1)',
+               vel2: 'rgba(255, 193, 7, 1)',
+               pos2Light: 'rgba(255, 107, 107, 0.1)',
+               vel2Light: 'rgba(255, 193, 7, 0.1)'
+          };
+
+          // Stato globale per confronto
+          let comparisonMode = 'overlapped';
+          let currentResults = null;
+
+          async function uploadVideos() {
+               const file1 = document.getElementById('videoFile1').files[0];
+               const file2 = document.getElementById('videoFile2').files[0];
+
+               if (!file1) {
+                    showStatus('Seleziona almeno il primo video', 'error');
+                    return;
+               }
+
+               showStatus('Caricamento video in corso...', 'loading');
+
+               const formData = new FormData();
+               formData.append('video_a', file1);
+               if (file2) {
+                    formData.append('video_b', file2);
+               }
+
+               try {
+                    const response = await fetch('http://127.0.0.1:8000/api/analyze-videos/', {
+                         method: 'POST',
+                         body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                         throw new Error(data.detail || 'Errore nel caricamento');
+                    }
+
+                    const jobId = data.job_id;
+                    showStatus(`Video caricato! Job ID: ${jobId}. Elaborazione in corso...`, 'loading');
+                    document.getElementById('jobId').value = jobId;
+
+                    // Avvia il polling
+                    pollJobStatus(jobId, file1, file2);
+               } catch (error) {
+                    showStatus(`Errore: ${error.message}`, 'error');
+                    console.error(error);
+               }
+          }
+
+          async function pollJobStatus(jobId, file1, file2) {
+               const maxAttempts = 1000;
+               let attempts = 0;
+
+               const pollInterval = setInterval(async () => {
+                    attempts++;
+
+                    try {
+                         const response = await fetch(`http://127.0.0.1:8000/api/analysis-status/${jobId}`);
+                         const data = await response.json();
+
+                         if (!response.ok) {
+                              throw new Error(data.detail || 'Errore');
+                         }
+
+                         const status = data.status;
+
+                         if (status === 'PENDING' || status === 'STARTED') {
+                              showStatus(`⏳ Elaborazione in corso (${status})... Tentativo ${attempts}/${maxAttempts}`, 'loading');
+                         } else if (status === 'SUCCESS') {
+                              clearInterval(pollInterval);
+                              showStatus('✅ Analisi completata! Caricamento risultati...', 'success');
+
+                              setTimeout(() => {
+                                   displayResults(jobId, data, file1, file2);
+                              }, 500);
+                         } else {
+                              clearInterval(pollInterval);
+                              throw new Error(`Task status: ${status}. Error: ${data.error || 'Sconosciuto'}`);
+                         }
+
+                         if (attempts >= maxAttempts) {
+                              clearInterval(pollInterval);
+                              showStatus('Timeout: l\'analisi sta impiegando troppo tempo', 'error');
+                         }
+                    } catch (error) {
+                         clearInterval(pollInterval);
+                         showStatus(`Errore nel polling: ${error.message}`, 'error');
+                         console.error(error);
+                    }
+               }, 2000);
+          }
+
+          async function loadResults() {
+               const jobId = document.getElementById('jobId').value.trim();
+               if (!jobId) {
+                    showStatus('Inserisci un Job ID', 'error');
+                    return;
+               }
+
+               showStatus('Caricamento dati...', 'loading');
+
+               try {
+                    const response = await fetch(`http://127.0.0.1:8000/api/analysis-status/${jobId}`);
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                         throw new Error(data.detail || 'Errore nel caricamento');
+                    }
+
+                    if (data.status === 'PENDING' || data.status === 'STARTED') {
+                         showStatus(`Elaborazione in corso (${data.status})...`, 'loading');
+                         setTimeout(() => loadResults(), 2000);
+                         return;
+                    }
+
+                    if (data.status !== 'SUCCESS') {
+                         throw new Error(`Task status: ${data.status}. Error: ${data.error || 'Unknown error'}`);
+                    }
+
+                    displayResults(jobId, data);
+               } catch (error) {
+                    showStatus(`Errore: ${error.message}`, 'error');
+                    console.error(error);
+               }
+          }
+
+          function displayResults(jobId, data, file1, file2) {
+               showStatus('Dati caricati con successo!', 'success');
+
+               const resultA = data.data.climber_A;
+               const resultB = data.data.climber_B;
+               const isComparison = !!resultB && resultB.landmarks;
+
+               // Salva i risultati globalmente
+               currentResults = { resultA, resultB, isComparison };
+
+               // Mostra video player se abbiamo file objects
+               if (file1) {
+                    displayVideos(file1, file2);
+               }
+
+               // Mostra controlli confronto se è un confronto
+               if (isComparison) {
+                    document.getElementById('comparisonControls').style.display = 'flex';
+               } else {
+                    document.getElementById('comparisonControls').style.display = 'none';
+               }
+
+               // Info da climber_A
+               const landmarks = resultA.landmarks;
+               const dt = resultA.dt;
+               const confidences = resultA.confidences;
+
+               const fps = (1 / dt).toFixed(2);
+               const numFrames = confidences.length;
+               const avgConfidence = (confidences.reduce((a, b) => a + b, 0) / confidences.length * 100).toFixed(1);
+
+               document.getElementById('infoGrid').style.display = 'grid';
+               document.getElementById('displayJobId').textContent = jobId;
+               document.getElementById('displayStatus').textContent = isComparison ? 'Confronto' : 'Completato';
+               document.getElementById('displayFps').textContent = fps;
+               document.getElementById('displayFrames').textContent = numFrames;
+               document.getElementById('displayConfidence').textContent = avgConfidence + '%';
+
+               // Popola select landmark
+               const select = document.getElementById('landmarkFilter');
+               select.innerHTML = '<option value="">-- Tutti i Landmark --</option>';
+               select.style.display = 'block';
+
+               Object.keys(landmarks).forEach(landmarkKey => {
+                    const landmarkName = landmarkNames[landmarkKey] || `Landmark ${landmarkKey}`;
+                    const option = document.createElement('option');
+                    option.value = landmarkKey;
+                    option.textContent = landmarkName;
+                    select.appendChild(option);
+               });
+
+               // Crea grafici
+               renderCharts();
+          }
+
+          function displayVideos(file1, file2) {
+               const videoGrid = document.getElementById('videoGrid');
+               videoGrid.innerHTML = '';
+
+               // Video 1
+               const url1 = URL.createObjectURL(file1);
+               const video1Container = document.createElement('div');
+               video1Container.className = 'video-container';
+               video1Container.innerHTML = `
+                <video controls>
+                    <source src="${url1}" type="video/mp4">
+                    Il tuo browser non supporta il tag video
+                </video>
+                <div class="video-label">Video 1</div>
+            `;
+               videoGrid.appendChild(video1Container);
+
+               // Video 2 se presente
+               if (file2) {
+                    const url2 = URL.createObjectURL(file2);
+                    const video2Container = document.createElement('div');
+                    video2Container.className = 'video-container';
+                    video2Container.innerHTML = `
+                    <video controls>
+                        <source src="${url2}" type="video/mp4">
+                        Il tuo browser non supporta il tag video
+                    </video>
+                    <div class="video-label">Video 2</div>
+                `;
+                    videoGrid.appendChild(video2Container);
+               }
+
+               document.getElementById('videoPlayerSection').classList.add('active');
+          }
+
+          function renderCharts() {
+               const container = document.getElementById('chartsContainer');
+               container.innerHTML = '';
+
+               const { resultA, resultB, isComparison } = currentResults;
+               const landmarks = resultA.landmarks;
+
+               Object.entries(landmarks).forEach(([landmarkKey, landmarkDataA]) => {
+                    const landmarkName = landmarkNames[landmarkKey] || `Landmark ${landmarkKey}`;
+
+                    const group = document.createElement('div');
+                    group.className = 'landmark-group';
+                    group.id = `landmark-${landmarkKey}`;
+
+                    const posA = landmarkDataA.pos;
+                    const velA = landmarkDataA.vel;
+                    const timeline = Array.from({ length: posA.length }, (_, i) => i);
+
+                    if (isComparison && comparisonMode === 'overlapped') {
+                         // Modalità sovrapposta
+                         const landmarkDataB = resultB.landmarks[landmarkKey];
+                         const posB = landmarkDataB.pos;
+                         const velB = landmarkDataB.vel;
+
+                         group.innerHTML = `
+                        <h2><span class="landmark-name">${landmarkName}</span></h2>
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="margin-bottom: 10px; color: #667eea;">Posizione (Y) - Confronto</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-pos-${landmarkKey}"></canvas>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="margin-bottom: 10px; color: #764ba2;">Velocità (Y) - Confronto</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-vel-${landmarkKey}"></canvas>
+                            </div>
+                        </div>
+                    `;
+                         container.appendChild(group);
+
+                         createComparisonChart(
+                              `chart-pos-${landmarkKey}`,
+                              'Posizione Y (metri)',
+                              timeline,
+                              posA, posB,
+                              'Video 1', 'Video 2'
+                         );
+
+                         createComparisonChart(
+                              `chart-vel-${landmarkKey}`,
+                              'Velocità Y (m/s)',
+                              timeline,
+                              velA, velB,
+                              'Video 1', 'Video 2'
+                         );
+                    } else if (isComparison && comparisonMode === 'separate') {
+                         // Modalità separata
+                         const landmarkDataB = resultB.landmarks[landmarkKey];
+                         const posB = landmarkDataB.pos;
+                         const velB = landmarkDataB.vel;
+
+                         group.innerHTML = `
+                        <h2><span class="landmark-name">${landmarkName}</span></h2>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div>
+                                <h3 style="margin-bottom: 10px; color: #667eea;">Video 1 - Posizione (Y)</h3>
+                                <div class="chart-wrapper">
+                                    <canvas id="chart-pos-a-${landmarkKey}"></canvas>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 style="margin-bottom: 10px; color: #ff6b6b;">Video 2 - Posizione (Y)</h3>
+                                <div class="chart-wrapper">
+                                    <canvas id="chart-pos-b-${landmarkKey}"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div>
+                                <h3 style="margin-bottom: 10px; color: #764ba2;">Video 1 - Velocità (Y)</h3>
+                                <div class="chart-wrapper">
+                                    <canvas id="chart-vel-a-${landmarkKey}"></canvas>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 style="margin-bottom: 10px; color: #ffc107;">Video 2 - Velocità (Y)</h3>
+                                <div class="chart-wrapper">
+                                    <canvas id="chart-vel-b-${landmarkKey}"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                         container.appendChild(group);
+
+                         createChart(`chart-pos-a-${landmarkKey}`, 'Posizione Y (metri)', timeline, posA, colors.pos, colors.posLight);
+                         createChart(`chart-pos-b-${landmarkKey}`, 'Posizione Y (metri)', timeline, posB, colors.pos2, colors.pos2Light);
+                         createChart(`chart-vel-a-${landmarkKey}`, 'Velocità Y (m/s)', timeline, velA, colors.vel, colors.velLight);
+                         createChart(`chart-vel-b-${landmarkKey}`, 'Velocità Y (m/s)', timeline, velB, colors.vel2, colors.vel2Light);
+                    } else {
+                         // Singolo video
+                         group.innerHTML = `
+                        <h2><span class="landmark-name">${landmarkName}</span></h2>
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="margin-bottom: 10px; color: #667eea;">Posizione (Y)</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-pos-${landmarkKey}"></canvas>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="margin-bottom: 10px; color: #764ba2;">Velocità (Y)</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-vel-${landmarkKey}"></canvas>
+                            </div>
+                        </div>
+                    `;
+                         container.appendChild(group);
+
+                         createChart(
+                              `chart-pos-${landmarkKey}`,
+                              'Posizione Y (metri)',
+                              timeline,
+                              posA,
+                              colors.pos,
+                              colors.posLight
+                         );
+
+                         createChart(
+                              `chart-vel-${landmarkKey}`,
+                              'Velocità Y (m/s)',
+                              timeline,
+                              velA,
+                              colors.vel,
+                              colors.velLight
+                         );
+                    }
+               });
+          }
+
+          function updateChartMode() {
+               comparisonMode = document.querySelector('input[name="comparisonMode"]:checked').value;
+               renderCharts();
+          }
+
+          function createComparisonChart(canvasId, label, timeline, dataA, dataB, labelA, labelB) {
+               const ctx = document.getElementById(canvasId).getContext('2d');
+               new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                         labels: timeline,
+                         datasets: [
+                              {
+                                   label: labelA,
+                                   data: dataA,
+                                   borderColor: colors.pos,
+                                   backgroundColor: colors.posLight,
+                                   borderWidth: 2.5,
+                                   fill: false,
+                                   tension: 0.4,
+                                   pointRadius: 0,
+                                   pointHoverRadius: 8
+                              },
+                              {
+                                   label: labelB,
+                                   data: dataB,
+                                   borderColor: colors.pos2,
+                                   backgroundColor: colors.pos2Light,
+                                   borderWidth: 2.5,
+                                   fill: false,
+                                   tension: 0.4,
+                                   pointRadius: 0,
+                                   pointHoverRadius: 8
+                              }
+                         ]
+                    },
+                    options: {
+                         responsive: true,
+                         maintainAspectRatio: false,
+                         interaction: {
+                              mode: 'index',
+                              intersect: false
+                         },
+                         plugins: {
+                              legend: {
+                                   display: true,
+                                   labels: {
+                                        color: '#666',
+                                        font: { size: 12, weight: 'bold' },
+                                        padding: 15
+                                   }
+                              }
+                         },
+                         scales: {
+                              y: {
+                                   beginAtZero: false,
+                                   grid: {
+                                        color: 'rgba(0,0,0,0.05)'
+                                   },
+                                   ticks: {
+                                        color: '#999',
+                                        font: { size: 11 }
+                                   }
+                              },
+                              x: {
+                                   grid: {
+                                        color: 'rgba(0,0,0,0.05)'
+                                   },
+                                   ticks: {
+                                        color: '#999',
+                                        font: { size: 11 },
+                                        maxTicksLimit: 10
+                                   }
+                              }
+                         }
+                    }
+               });
+          }
+
+          function createChart(canvasId, label, timeline, data, color, lightColor) {
+               const ctx = document.getElementById(canvasId).getContext('2d');
+               new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                         labels: timeline,
+                         datasets: [{
+                              label: label,
+                              data: data,
+                              borderColor: color,
+                              backgroundColor: lightColor,
+                              borderWidth: 2,
+                              fill: true,
+                              tension: 0.4,
+                              pointRadius: 0,
+                              pointHoverRadius: 6,
+                              pointBackgroundColor: color,
+                              pointBorderColor: '#fff',
+                              pointBorderWidth: 2
+                         }]
+                    },
+                    options: {
+                         responsive: true,
+                         maintainAspectRatio: false,
+                         plugins: {
+                              legend: {
+                                   display: true,
+                                   labels: {
+                                        color: '#666',
+                                        font: { size: 12, weight: 'bold' }
+                                   }
+                              }
+                         },
+                         scales: {
+                              y: {
+                                   beginAtZero: false,
+                                   grid: {
+                                        color: 'rgba(0,0,0,0.05)'
+                                   },
+                                   ticks: {
+                                        color: '#999',
+                                        font: { size: 11 }
+                                   }
+                              },
+                              x: {
+                                   grid: {
+                                        color: 'rgba(0,0,0,0.05)'
+                                   },
+                                   ticks: {
+                                        color: '#999',
+                                        font: { size: 11 },
+                                        maxTicksLimit: 10
+                                   }
+                              }
+                         }
+                    }
+               });
+          }
+
+          function showStatus(message, type) {
+               const status = document.getElementById('status');
+               status.textContent = message;
+               status.className = `status ${type}`;
+          }
+
+          function filterLandmark() {
+               const selectedLandmark = document.getElementById('landmarkFilter').value;
+               const groups = document.querySelectorAll('.landmark-group');
+
+               groups.forEach(group => {
+                    if (selectedLandmark === '') {
+                         // Mostra tutti
+                         group.classList.remove('hidden');
+                    } else {
+                         // Mostra solo quello selezionato
+                         if (group.id === `landmark-${selectedLandmark}`) {
+                              group.classList.remove('hidden');
+                         } else {
+                              group.classList.add('hidden');
+                         }
+                    }
+               });
+          }
+
+          // Carica automaticamente se c'è un job_id nella URL
+          window.addEventListener('load', () => {
+               const params = new URLSearchParams(window.location.search);
+               const jobId = params.get('job_id');
+               if (jobId) {
+                    document.getElementById('jobId').value = jobId;
+                    loadResults();
+               }
+          });
+     </script>
+</body>
+
+</html>

@@ -1,0 +1,23 @@
+# Conda environment spec (prefer conda-forge to avoid mixed OpenMP runtimes)
+name: speed-analysis
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - scipy
+  - matplotlib
+  - opencv
+  - pytorch
+  - pip:
+    - ultralytics
+    - celery
+    - redis
+    - mediapipe
+    - pykalman
+    - tflite-runtime
+
+# Notes:
+# - Adjust `pytorch` package variant for your platform (cpu/cuda) — prefer conda-forge builds.
+# - After creating the env: `pip install -r server/requirements.txt` if you keep that file.

@@ -1,3 +1,8 @@
+import os
+# Workaround for multiple OpenMP runtimes (unsafe — prefer fixing environment)
+# If you prefer, remove this and create a conda env with consistent builds (see environment.yml)
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
 from celery import Celery
 import time
 import random
@@ -16,10 +21,11 @@ mp_pose = mp.solutions.pose
 from pykalman import KalmanFilter
 from ultralytics.engine.results import Results
 from ultralytics import YOLO
+import os
 
-REDIS_PORT = 6739
-REDIS_URL = "redis://localhost:" + REDIS_PORT + "/0"
-REDIS_BACKEND = "redis://localhost: " + REDIS_PORT + "/1"
+REDIS_PORT = 6379
+REDIS_URL = "redis://localhost:6379/0"
+REDIS_BACKEND = "redis://localhost:6379/1"
 
 app = Celery(
     'video_tasks', 
@@ -36,41 +42,41 @@ app.conf.update(
 
 
 @app.task(name='analyze_climbing_videos')
-def analyze_climbing_videos_task(filename_a: str, filename_b: str) -> dict:
+def analyze_climbing_videos_task(video_path_a: str, video_path_b: str = None) -> dict:
     """ 
-    Simula l'analisi video: attende e restituisce dati fittizi.
-    I nomi dei file sono solo per debug.
+    Analizza i video di arrampicata.
+    
+    :param video_path_a: Percorso assoluto al primo video
+    :param video_path_b: Percorso assoluto al secondo video (opzionale)
+    :return: Dati dell'analisi per entrambi i video
     """
-    print(f"--- INIZIO ELABORAZIONE MOCK: {filename_a} vs {filename_b} ---")
-    
-    # Simula l'elaborazione time consuming
-    delay = random.randint(1, 4)
-    time.sleep(delay)
+    # Ensure model is loaded in the worker process (Celery runs in a separate process)
+    global model
+    if model is None:
+        model_path = os.environ.get("MODEL_PATH") or os.path.join(os.path.dirname(__file__), "best.pt")
+        try:
+            model = YOLO(model_path)
+        except Exception as e:
+            return {"error": f"Failed to load model at {model_path}: {e}", "status": "failed"}
 
-    # Genera dati mock
-    time_points = list(range(10))  
-     
-    mock_data_A = {
-        "pos_Y": [random.uniform(0.5, 3.0) for _ in time_points],
-        "vel_Y": [random.uniform(-1.0, 1.0) for _ in time_points],
-        "acc_Y": [random.uniform(-5.0, 5.0) for _ in time_points],
-        "time": time_points,
-    }
-    
-    mock_data_B = {
-        "pos_Y": [random.uniform(0.5, 3.0) for _ in time_points],
-        "vel_Y": [random.uniform(-1.0, 1.0) for _ in time_points],
-        "acc_Y": [random.uniform(-5.0, 5.0) for _ in time_points],
-        "time": time_points,
-    }
-    
-    print(f"--- ELABORAZIONE MOCK COMPLETATA in {delay} secondi. ---")
- 
-    return {
-        "climber_A": mock_data_A,
-        "climber_B": mock_data_B,
-        "processing_time": delay
-    }
+    try:
+        result_a = act(video_path_a)
+        result = {
+            "climber_A": result_a,
+            "status": "completed"
+        }
+        
+        # Se c'è un secondo video, analizzalo anche
+        if video_path_b:
+            result_b = act(video_path_b)
+            result["climber_B"] = result_b
+        
+        return result
+    except Exception as e:
+        return {
+            "error": str(e),
+            "status": "failed"
+        }
 
 
 model = None
@@ -134,12 +140,13 @@ def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum(axis=0) # only difference
 
-def var_n_pnp_solve(i_src: np.ndarray, i_dst: np.ndarray, h_coord, bound_x=None, bound_y=None):
+def var_n_pnp_solve(i_src: np.ndarray, i_dst: np.ndarray, h_coord, xyxy_tensor=None, bound_x=None, bound_y=None):
     """
 
     :param i_src:
     :param i_dst:
     :param h_coord:
+    :param xyxy_tensor: Bounding boxes tensor from YOLO
     :return:
     """
     # N is the number of tracked reference points.
@@ -147,25 +154,31 @@ def var_n_pnp_solve(i_src: np.ndarray, i_dst: np.ndarray, h_coord, bound_x=None,
 
     if n == 0:
         return None
+    
     x_point = None
-    val = xyxy.cpu().numpy()
+    
+    if xyxy_tensor is not None:
+        val = xyxy_tensor.cpu().numpy() if hasattr(xyxy_tensor, 'cpu') else xyxy_tensor
+    else:
+        val = None
 
     GRIP_SIZE = 0.35
 
     x_points = []
     weights = []
-    for i in range(len(val)):
-        s = [(val[i][2] - val[i][0]), (val[i][3] - val[i][1])]
-        s = (sum(s) / 2) / GRIP_SIZE
-        v0_to_h = -(np.array(h_coord) - i_dst[i]) / s
-        # weights.append(1 / ((np.linalg.norm(v0_to_h)**2)/18 + 1))
-        x_points.append((i_src[i] + v0_to_h))
+    
+    if val is not None and len(val) > 0:
+        for i in range(len(val)):
+            s = [(val[i][2] - val[i][0]), (val[i][3] - val[i][1])]
+            s = (sum(s) / 2) / GRIP_SIZE
+            v0_to_h = -(np.array(h_coord) - i_dst[i]) / s
+            # weights.append(1 / ((np.linalg.norm(v0_to_h)**2)/18 + 1))
+            x_points.append((i_src[i] + v0_to_h))
 
-
-    # weights = softmax(weights)
-    return np.average(x_points,
-                      # weights=weights,
-                      axis=0)
+        # weights = softmax(weights)
+        return np.average(x_points,
+                          # weights=weights,
+                          axis=0)
 
     if n >= 4:
         #
@@ -197,7 +210,10 @@ def var_n_pnp_solve(i_src: np.ndarray, i_dst: np.ndarray, h_coord, bound_x=None,
         # x_point = A^-1 ( h - t )
         x_point = np.dot(A_inv, (np.array(h_coord) - np.array(t)).T).ravel()
     elif n <= 2:
-        val = xyxy.cpu().numpy()
+        if val is None or len(val) == 0:
+            print("WARNING: No bounding boxes available for scale estimation")
+            return None
+            
         GRIP_SIZE = 0.35
 
         if n == 2:
@@ -263,29 +279,37 @@ def suppress_border_detection(boxes: np.ndarray, border_ratio: float, image_dim:
     return mask
 
 
-def act(video1, video2):
-
+def act(video_path):
+    """
+    Elabora un video di arrampicata e estrae i dati biomeccanici.
+    
+    :param video_path: Percorso al file video
+    :return: Dizionario con i dati elaborati
+    """
     ys = []
     ps = []
     max_frame: int = 0
     idx = 0
     prev_val = [0, 0]
+    confidences = []
 
     # Dictionary to contain all landmarks of all timesteps
     chosen_landmarks = [-1, 0, 15, 16, 27, 28, 25, 26]
     position_for_all_landmarks = {
-        land : ([], None, []) for land in chosen_landmarks
+        # (ys_list, prev_val, ps_list) -- initialize prev_val as [0,0] to avoid None
+        land : ([], [0, 0], []) for land in chosen_landmarks
     }
 
     with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5,
                       static_image_mode=False, smooth_landmarks=True) as pose:
         try:
-            cap = cv2.VideoCapture(_PATH_TO_FOOTAGE)
+            cap = cv2.VideoCapture(video_path)
         except FileNotFoundError:
-            print("ERROR: Failed to load the example footage. Please ensure the correct path to the footage is "
-                  "inside " + _PATH_TO_FOOTAGE.__name__)
+            print(f"ERROR: Failed to load the video. Please ensure the path exists: {video_path}")
+            return {"error": f"Video not found: {video_path}"}
+        
         if not cap.isOpened():
-            raise IOError(f"ERROR: CV2 Could not open file: {_PATH_TO_FOOTAGE}")
+            raise IOError(f"ERROR: CV2 Could not open file: {video_path}")
 
         while cap.isOpened() and (not max_frame or idx < max_frame):
             ret, frame = cap.read()
@@ -342,19 +366,20 @@ def act(video1, video2):
                 ys, prev_val, ps = position_for_all_landmarks[chosen_landmark]
                 if lm is None or not lm:
                     ps.append(prev_val)
-                    # ps.append(np.array([0, 0]))
                     ys += [prev_val[1]]
                 else:
                     c_i_m = compute_mp_pose_com(lm, data[0].orig_shape[1], data[0].orig_shape[0], chosen_landmark)
-                    pos = var_n_pnp_solve(src, dst, c_i_m, bound_x=[0, 3.0], bound_y=[0, 15.0])
+                    pos = var_n_pnp_solve(src, dst, c_i_m, xyxy_tensor=xyxy, bound_x=[0, 3.0], bound_y=[0, 15.0])
                     if pos is None:
                         ps.append(prev_val)
-                        # ps.append(np.array([0, 0]))
                         ys += [prev_val[1]]
                     else:
                         ps.append(pos)
                         prev_val = pos
                         ys += [pos[1]]
+
+                # write back updated prev_val and lists into the dict
+                position_for_all_landmarks[chosen_landmark] = (ys, prev_val, ps)
             dt = time.perf_counter() - t0
             print(f"Elapsed time FOR THE LOOP: {dt*1000:.6f} ms")
 
@@ -407,3 +432,17 @@ def act(video1, video2):
         velf = butter_lowpass_filter(vel, cutoff, fs, order+1)
 
         final_answer[chosen_landmark] = yf, velf
+
+    # Convert results to JSON-serializable structures (lists)
+    output = {}
+    for k, v in final_answer.items():
+        try:
+            pos, vel = v
+        except Exception:
+            continue
+        pos_list = np.asarray(pos).tolist() if pos is not None else []
+        vel_list = np.asarray(vel).tolist() if vel is not None else []
+        output[str(k)] = {"pos": pos_list, "vel": vel_list}
+
+    # Return structured, serializable result
+    return {"landmarks": output, "dt": float(dt), "confidences": [float(c) for c in confidences]}
