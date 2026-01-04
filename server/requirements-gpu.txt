@@ -1,0 +1,29 @@
+# GPU-optimized requirements for speed-analysis project
+# Use this for deployment on GPU servers
+
+# PyTorch with CUDA support (adjust cu118 to your CUDA version)
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Computer Vision & ML
+ultralytics>=8.0.0
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+
+# API & Task Queue
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+celery>=5.3.0
+redis>=4.5.0
+
+# Data Processing
+numpy>=1.24.0
+scipy>=1.10.0
+pykalman>=0.9.5
+matplotlib>=3.7.0
+
+# Utilities
+python-multipart>=0.0.6
+pydantic>=2.0.0

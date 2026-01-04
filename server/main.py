@@ -21,7 +21,7 @@ app.add_middleware(
 UPLOAD_DIR = tempfile.mkdtemp(prefix="video_uploads_")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Path al viewer HTML
+# Path al viewer 
 VIEWER_PATH = os.path.join(os.path.dirname(__file__), "..", "client", "analysis_viewer.html")
 
 PATH_TO_MODEL = r"best.pt"
@@ -87,14 +87,37 @@ async def get_analysis_status(job_id: str) -> Dict[str, Any]:
         if task.successful():
             result = task.result
             try:
-                return {"status": task.state, "data": result}
+                return {"status": "SUCCESS", "data": result}
             except Exception:
-                return {"status": task.state, "data": str(result)}
+                return {"status": "SUCCESS", "data": str(result)}
         else:
             # Task finished but failed or was revoked. Return a stringified error.
             err = task.result if task.result is not None else getattr(task, 'traceback', None)
             return {"status": task.state, "error": str(err)}
-    elif task.state in ['PENDING', 'STARTED', 'RETRY']:
-        return {"status": task.state}
+    elif task.state == 'PENDING':
+        # Task is waiting in queue
+        return {
+            "status": "PENDING",
+            "message": "Your request is in queue. Please wait, another analysis is currently running.",
+            "progress": 0
+        }
+    elif task.state == 'STARTED':
+        return {
+            "status": "STARTED",
+            "message": "Analysis started, processing frames...",
+            "progress": 0
+        }
+    elif task.state == 'PROGRESS':
+        # Custom progress state with metadata
+        info = task.info or {}
+        return {
+            "status": "PROGRESS",
+            "current": info.get('current', 0),
+            "total": info.get('total', 100),
+            "progress": info.get('progress', info.get('current', 0)),
+            "message": info.get('message', 'Processing...')
+        }
+    elif task.state == 'RETRY':
+        return {"status": "RETRY", "message": "Retrying task..."}
     else:
         raise HTTPException(status_code=400, detail=f"Job {job_id} failed with state {task.state}")

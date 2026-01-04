@@ -401,14 +401,11 @@
      </div>
 
      <script>
-          // Landmark names
+          // Landmark names (updated to match backend - removed nose and knees for performance)
           const landmarkNames = {
                '-1': 'Centro Corpo',
-               '0': 'Naso',
                '15': 'Polso Sinistro',
                '16': 'Polso Destro',
-               '25': 'Ginocchio Sinistro',
-               '26': 'Ginocchio Destro',
                '27': 'Caviglia Sinistra',
                '28': 'Caviglia Destra'
           };
@@ -487,8 +484,16 @@
 
                          const status = data.status;
 
-                         if (status === 'PENDING' || status === 'STARTED') {
-                              showStatus(`⏳ Elaborazione in corso (${status})... Tentativo ${attempts}/${maxAttempts}`, 'loading');
+                         if (status === 'PENDING') {
+                              // Task in coda
+                              showStatus(`⏳ ${data.message || 'In coda, attendere...'} (Tentativo ${attempts}/${maxAttempts})`, 'loading');
+                         } else if (status === 'STARTED') {
+                              showStatus(`🚀 ${data.message || 'Analisi avviata...'} (Tentativo ${attempts}/${maxAttempts})`, 'loading');
+                         } else if (status === 'PROGRESS') {
+                              // Mostra progresso dettagliato
+                              const progress = data.progress || 0;
+                              const message = data.message || 'Processing...';
+                              showStatus(`⚙️ ${message} (${progress}%)`, 'loading');
                          } else if (status === 'SUCCESS') {
                               clearInterval(pollInterval);
                               showStatus('✅ Analisi completata! Caricamento risultati...', 'success');

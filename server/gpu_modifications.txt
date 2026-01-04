@@ -1,0 +1,42 @@
+# GPU-Ready modifications for tasks.py
+# Replace the model loading section with this:
+
+import torch
+
+# Check if GPU is available
+USE_GPU = torch.cuda.is_available()
+DEVICE = 'cuda:0' if USE_GPU else 'cpu'
+
+@app.task(name='analyze_climbing_videos', bind=True)
+def analyze_climbing_videos_task(self, video_path_a: str, video_path_b: str = None) -> dict:
+    global model
+    if model is None:
+        model_path = os.environ.get("MODEL_PATH") or os.path.join(os.path.dirname(__file__), "best.pt")
+        try:
+            model = YOLO(model_path)
+            
+            # GPU optimization
+            if USE_GPU:
+                model.to(DEVICE)
+                print(f"✅ Model loaded on GPU: {torch.cuda.get_device_name(0)}")
+            else:
+                model.fuse()  # CPU optimization
+                print("⚠️ Running on CPU")
+                
+        except Exception as e:
+            return {"error": f"Failed to load model at {model_path}: {e}", "status": "failed"}
+    # ... rest of the code
+
+
+# In the act() function, modify the YOLO call:
+# OLD: res = model.track(frame, persist=True, iou=0.40, conf=0.25, verbose=False)
+# NEW:
+res = model.track(
+    frame, 
+    device=DEVICE,
+    half=USE_GPU,  # FP16 only on GPU
+    persist=True, 
+    iou=0.40, 
+    conf=0.25, 
+    verbose=False
+)
