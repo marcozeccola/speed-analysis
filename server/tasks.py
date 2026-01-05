@@ -363,7 +363,7 @@ def act(video_path, task=None, progress_start=0, progress_end=100, video_number=
                       static_image_mode=False, smooth_landmarks=True, model_complexity=0) as pose:
         try:
             # Use decord for better video codec support
-            decord.bridge.set_bridge('numpy')
+            # Don't set bridge - VideoReader returns numpy arrays by default
             vr = VideoReader(video_path, ctx=cpu(0))
         except Exception as e:
             print(f"ERROR: Failed to load the video: {video_path} - {e}")
