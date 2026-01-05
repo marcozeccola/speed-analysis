@@ -502,7 +502,9 @@ def act(video_path, task=None, progress_start=0, progress_end=100, video_number=
                 t_total = time.perf_counter() - t_frame_start
                 print(f"Frame {idx}: TOTAL={t_total*1000:.1f}ms")
 
-    dt = 1 / cap.get(cv2.CAP_PROP_FPS)
+    # Get FPS from decord VideoReader
+    fps = vr.get_avg_fps()
+    dt = 1 / fps if fps > 0 else 1/30  # Fallback to 30 FPS
 
     # Update state: starting Kalman filter processing
     if task:
