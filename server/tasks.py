@@ -19,6 +19,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import mediapipe as mp
+import decord
+from decord import VideoReader, cpu
 
 # Enable OpenCV optimizations for Intel CPU
 cv2.setUseOptimized(True)
@@ -360,24 +362,28 @@ def act(video_path, task=None, progress_start=0, progress_end=100, video_number=
     with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5,
                       static_image_mode=False, smooth_landmarks=True, model_complexity=0) as pose:
         try:
-            cap = cv2.VideoCapture(video_path)
-        except FileNotFoundError:
-            print(f"ERROR: Failed to load the video. Please ensure the path exists: {video_path}")
-            return {"error": f"Video not found: {video_path}"}
-        
-        if not cap.isOpened():
-            raise IOError(f"ERROR: CV2 Could not open file: {video_path}")
+            # Use decord for better video codec support
+            decord.bridge.set_bridge('numpy')
+            vr = VideoReader(video_path, ctx=cpu(0))
+        except Exception as e:
+            print(f"ERROR: Failed to load the video: {video_path} - {e}")
+            return {"error": f"Video not found or cannot be opened: {video_path}"}
         
         # Get total frame count for progress reporting
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        total_frames = len(vr)
         if total_frames <= 0:
             total_frames = 1000  # Fallback estimate
         
         # OPTIMIZATION: Process every N frames for 2-3x speedup (1=all frames, 2=half, 3=third)
         frame_skip = 2  # Change to 1 to process all frames, 2 for 2x speed, 3 for 3x speed
 
-        while cap.isOpened() and (not max_frame or idx < max_frame):
-            ret, frame = cap.read()
+        while idx < total_frames and (not max_frame or idx < max_frame):
+            # Read frame using decord
+            try:
+                frame = vr[idx].asnumpy()  # RGB format by default
+                ret = True
+            except:
+                ret = False
             t_frame_start = time.perf_counter()
 
             if not ret:
@@ -397,17 +403,19 @@ def act(video_path, task=None, progress_start=0, progress_end=100, video_number=
                 )
             
             try:
-                # CV2 legacy imports images as BGR instead of RGB, so map back.
+                # Decord already provides RGB format, no conversion needed
+                # But we need BGR for YOLO tracking (expects BGR)
                 t_convert = time.perf_counter()
-                image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # Convert to BGR for YOLO
+                image_rgb = frame  # Already RGB for MediaPipe
                 # print(f"  cvtColor: {(time.perf_counter()-t_convert)*1000:.1f}ms") if idx % 50 == 0 else None
             except IOError:
-                print(f"WARNING: Failed to map frame {idx} into RGB format. Terminating early the footage scan.")
+                print(f"WARNING: Failed to process frame {idx}. Terminating early the footage scan.")
                 break
             # Optimize YOLO inference for GPU/CPU
             t_yolo = time.perf_counter()
             res: list[Results] = model.track(
-                frame, 
+                frame_bgr, 
                 device=DEVICE,
                 half=USE_GPU,  # FP16 only on GPU for speed
                 persist=True, 

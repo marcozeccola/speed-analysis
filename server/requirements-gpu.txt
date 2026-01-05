@@ -11,6 +11,7 @@ torchaudio>=2.0.0
 ultralytics>=8.0.0
 opencv-python>=4.8.0
 mediapipe>=0.10.0
+decord>=0.6.0
 
 # API & Task Queue
 fastapi>=0.100.0
