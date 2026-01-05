@@ -1,7 +1,28 @@
+# Old training/testing files
 /runs/detect/yolo_speedclimbing 
 /runs/detect/yolo_speedclimbing2
 /imgs
 /toextract
-/old_stuff/imgs
-/old_stuff/toextract
-/old_stuff/dataset
+/old_stuff/
+
+# Model files (too large for git)
+*.pt
+best.pt
+
+# Local development files
+dump.rdb
+cmds.txt
+environment.yml
+.conda/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Temporary files
+*.log
+*.tmp
+/server/gpu_modifications.txt

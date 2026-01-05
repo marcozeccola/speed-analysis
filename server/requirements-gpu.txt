@@ -1,8 +1,8 @@
 # GPU-optimized requirements for speed-analysis project
-# Use this for deployment on GPU servers
+# Use this for deployment on GPU servers with CUDA 12.x
 
-# PyTorch with CUDA support (adjust cu118 to your CUDA version)
---extra-index-url https://download.pytorch.org/whl/cu118
+# PyTorch with CUDA 12.x support
+--extra-index-url https://download.pytorch.org/whl/cu121
 torch>=2.0.0
 torchvision>=0.15.0
 torchaudio>=2.0.0
