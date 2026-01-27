@@ -321,7 +321,7 @@
 <body>
      <div class="container">
           <div class="header">
-               <h1>📊 Analisi Video Climbing</h1>
+               <h1>Analisi Video</h1>
 
                <!-- Sezione Upload Video -->
                <div
@@ -335,14 +335,14 @@
                          <button onclick="uploadVideos()">Avvia Analisi</button>
                     </div>
                     <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                         💡 Carica 1 video per analisi singola, 2 video per confronto
+                         Carica 1 video per analisi singola, 2 video per confronto
                     </div>
                </div>
 
                <!-- Sezione Carica Risultati Esistenti -->
                <div
                     style="margin-bottom: 25px; padding: 20px; background: #f9f9f9; border-radius: 8px; border-left: 4px solid #764ba2;">
-                    <h3 style="margin-bottom: 15px; color: #333;">📊 Visualizza Risultati Esistenti</h3>
+                    <h3 style="margin-bottom: 15px; color: #333;">Visualizza Risultati Esistenti</h3>
                     <div class="input-group">
                          <input type="text" id="jobId" placeholder="Inserisci Job ID per visualizzare i risultati...">
                          <button onclick="loadResults()">Carica Risultati</button>
@@ -378,7 +378,7 @@
           </div>
 
           <div id="videoPlayerSection" class="video-player-section">
-               <h2 style="margin-bottom: 20px;">📹 Visualizzazione Video</h2>
+               <h2 style="margin-bottom: 20px;">Visualizzazione Video</h2>
                <div id="videoGrid" class="video-grid"></div>
 
                <div id="comparisonControls" class="comparison-controls" style="display: none;">
@@ -444,7 +444,7 @@
                }
 
                try {
-                    const response = await fetch('http://127.0.0.1:8000/api/analyze-videos/', {
+                    const response = await fetch('/api/analyze-videos/', {
                          method: 'POST',
                          body: formData
                     });
@@ -475,7 +475,7 @@
                     attempts++;
 
                     try {
-                         const response = await fetch(`http://127.0.0.1:8000/api/analysis-status/${jobId}`);
+                         const response = await fetch(`/api/analysis-status/${jobId}`);
                          const data = await response.json();
 
                          if (!response.ok) {
@@ -528,7 +528,7 @@
                showStatus('Caricamento dati...', 'loading');
 
                try {
-                    const response = await fetch(`http://127.0.0.1:8000/api/analysis-status/${jobId}`);
+                    const response = await fetch(`/api/analysis-status/${jobId}`);
                     const data = await response.json();
 
                     if (!response.ok) {
