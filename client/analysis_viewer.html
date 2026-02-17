@@ -648,6 +648,10 @@
 
                const { resultA, resultB, isComparison } = currentResults;
                const landmarks = resultA.landmarks;
+               
+               // dt per convertire frame in secondi
+               const dtA = resultA.dt || (1/30); // Secondi per frame, default 30 FPS
+               const dtB = isComparison ? (resultB.dt || (1/30)) : dtA;
 
                Object.entries(landmarks).forEach(([landmarkKey, landmarkDataA]) => {
                     const landmarkName = landmarkNames[landmarkKey] || `Landmark ${landmarkKey}`;
@@ -658,13 +662,16 @@
 
                     const posA = landmarkDataA.pos;
                     const velA = landmarkDataA.vel;
-                    const timeline = Array.from({ length: posA.length }, (_, i) => i);
+                    // Timeline in secondi: converte indice frame in secondi
+                    const timelineA = Array.from({ length: posA.length }, (_, i) => (i * dtA).toFixed(2));
 
                     if (isComparison && comparisonMode === 'overlapped') {
                          // Modalità sovrapposta
                          const landmarkDataB = resultB.landmarks[landmarkKey];
                          const posB = landmarkDataB.pos;
                          const velB = landmarkDataB.vel;
+                         // Timeline separata per video B con la propria lunghezza
+                         const timelineB = Array.from({ length: posB.length }, (_, i) => (i * dtB).toFixed(2));
 
                          group.innerHTML = `
                         <h2><span class="landmark-name">${landmarkName}</span></h2>
@@ -686,7 +693,7 @@
                          createComparisonChart(
                               `chart-pos-${landmarkKey}`,
                               'Posizione Y (metri)',
-                              timeline,
+                              timelineA, timelineB,
                               posA, posB,
                               'Video 1', 'Video 2'
                          );
@@ -694,7 +701,7 @@
                          createComparisonChart(
                               `chart-vel-${landmarkKey}`,
                               'Velocità Y (m/s)',
-                              timeline,
+                              timelineA, timelineB,
                               velA, velB,
                               'Video 1', 'Video 2'
                          );
@@ -703,6 +710,8 @@
                          const landmarkDataB = resultB.landmarks[landmarkKey];
                          const posB = landmarkDataB.pos;
                          const velB = landmarkDataB.vel;
+                         // Timeline separata per video B
+                         const timelineB = Array.from({ length: posB.length }, (_, i) => (i * dtB).toFixed(2));
 
                          group.innerHTML = `
                         <h2><span class="landmark-name">${landmarkName}</span></h2>
@@ -737,10 +746,10 @@
                     `;
                          container.appendChild(group);
 
-                         createChart(`chart-pos-a-${landmarkKey}`, 'Posizione Y (metri)', timeline, posA, colors.pos, colors.posLight);
-                         createChart(`chart-pos-b-${landmarkKey}`, 'Posizione Y (metri)', timeline, posB, colors.pos2, colors.pos2Light);
-                         createChart(`chart-vel-a-${landmarkKey}`, 'Velocità Y (m/s)', timeline, velA, colors.vel, colors.velLight);
-                         createChart(`chart-vel-b-${landmarkKey}`, 'Velocità Y (m/s)', timeline, velB, colors.vel2, colors.vel2Light);
+                         createChart(`chart-pos-a-${landmarkKey}`, 'Posizione Y (metri)', timelineA, posA, colors.pos, colors.posLight);
+                         createChart(`chart-pos-b-${landmarkKey}`, 'Posizione Y (metri)', timelineB, posB, colors.pos2, colors.pos2Light);
+                         createChart(`chart-vel-a-${landmarkKey}`, 'Velocità Y (m/s)', timelineA, velA, colors.vel, colors.velLight);
+                         createChart(`chart-vel-b-${landmarkKey}`, 'Velocità Y (m/s)', timelineB, velB, colors.vel2, colors.vel2Light);
                     } else {
                          // Singolo video
                          group.innerHTML = `
@@ -763,7 +772,7 @@
                          createChart(
                               `chart-pos-${landmarkKey}`,
                               'Posizione Y (metri)',
-                              timeline,
+                              timelineA,
                               posA,
                               colors.pos,
                               colors.posLight
@@ -772,7 +781,7 @@
                          createChart(
                               `chart-vel-${landmarkKey}`,
                               'Velocità Y (m/s)',
-                              timeline,
+                              timelineA,
                               velA,
                               colors.vel,
                               colors.velLight
@@ -786,16 +795,24 @@
                renderCharts();
           }
 
-          function createComparisonChart(canvasId, label, timeline, dataA, dataB, labelA, labelB) {
+          function createComparisonChart(canvasId, label, timelineA, timelineB, dataA, dataB, labelA, labelB) {
                const ctx = document.getElementById(canvasId).getContext('2d');
+               
+               // Usa la timeline più lunga per le labels dell'asse X
+               const maxLength = Math.max(timelineA.length, timelineB.length);
+               const combinedTimeline = timelineA.length >= timelineB.length ? timelineA : timelineB;
+               
+               // Converti i dati in formato {x: time, y: value} per gestire lunghezze diverse
+               const datasetA = dataA.map((y, i) => ({ x: parseFloat(timelineA[i]), y: y }));
+               const datasetB = dataB.map((y, i) => ({ x: parseFloat(timelineB[i]), y: y }));
+               
                new Chart(ctx, {
                     type: 'line',
                     data: {
-                         labels: timeline,
                          datasets: [
                               {
                                    label: labelA,
-                                   data: dataA,
+                                   data: datasetA,
                                    borderColor: colors.pos,
                                    backgroundColor: colors.posLight,
                                    borderWidth: 2.5,
@@ -806,7 +823,7 @@
                               },
                               {
                                    label: labelB,
-                                   data: dataB,
+                                   data: datasetB,
                                    borderColor: colors.pos2,
                                    backgroundColor: colors.pos2Light,
                                    borderWidth: 2.5,
@@ -821,7 +838,7 @@
                          responsive: true,
                          maintainAspectRatio: false,
                          interaction: {
-                              mode: 'index',
+                              mode: 'nearest',
                               intersect: false
                          },
                          plugins: {
@@ -843,9 +860,16 @@
                                    ticks: {
                                         color: '#999',
                                         font: { size: 11 }
+                                   },
+                                   title: {
+                                        display: true,
+                                        text: label.includes('Velocità') ? 'Velocità (m/s)' : 'Altezza (m)',
+                                        color: '#666',
+                                        font: { size: 13, weight: 'bold' }
                                    }
                               },
                               x: {
+                                   type: 'linear',
                                    grid: {
                                         color: 'rgba(0,0,0,0.05)'
                                    },
@@ -853,6 +877,12 @@
                                         color: '#999',
                                         font: { size: 11 },
                                         maxTicksLimit: 10
+                                   },
+                                   title: {
+                                        display: true,
+                                        text: 'Tempo (s)',
+                                        color: '#666',
+                                        font: { size: 13, weight: 'bold' }
                                    }
                               }
                          }
@@ -902,6 +932,12 @@
                                    ticks: {
                                         color: '#999',
                                         font: { size: 11 }
+                                   },
+                                   title: {
+                                        display: true,
+                                        text: label.includes('Velocità') ? 'Velocità (m/s)' : 'Altezza (m)',
+                                        color: '#666',
+                                        font: { size: 13, weight: 'bold' }
                                    }
                               },
                               x: {
@@ -912,6 +948,12 @@
                                         color: '#999',
                                         font: { size: 11 },
                                         maxTicksLimit: 10
+                                   },
+                                   title: {
+                                        display: true,
+                                        text: 'Tempo (s)',
+                                        color: '#666',
+                                        font: { size: 13, weight: 'bold' }
                                    }
                               }
                          }

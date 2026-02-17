@@ -2,7 +2,7 @@ apri wls
 redis-server
 
 apri cmd
-cd C:\Users\marco\OneDrive\Documenti\speed-analysis\.conda
+cd C:\Users\marco\OneDrive\Documenti\speed-analysis
 conda activate c:\Users\marco\OneDrive\Documenti\speed-analysis\.conda
 uvicorn server.main:app --reload
 celery -A server.tasks worker -l info -P solo

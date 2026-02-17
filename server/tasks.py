@@ -374,8 +374,12 @@ def act(video_path, task=None, progress_start=0, progress_end=100, video_number=
         if total_frames <= 0:
             total_frames = 1000  # Fallback estimate
         
+        print(f">>> Video has {total_frames} total frames at {vr.get_avg_fps():.2f} FPS")
+        
         # OPTIMIZATION: Process every N frames for 2-3x speedup (1=all frames, 2=half, 3=third)
-        frame_skip = 2  # Change to 1 to process all frames, 2 for 2x speed, 3 for 3x speed
+        frame_skip = 1  # Change to 1 to process all frames, 2 for 2x speed, 3 for 3x speed
+        
+        frames_processed = 0
 
         while idx < total_frames and (not max_frame or idx < max_frame):
             # Read frame using decord
@@ -393,6 +397,8 @@ def act(video_path, task=None, progress_start=0, progress_end=100, video_number=
             # Skip frames for speed (process every Nth frame)
             if idx % frame_skip != 0:
                 continue
+            
+            frames_processed += 1
             
             # Update progress every 10 frames
             if task and idx % 10 == 0:
@@ -501,6 +507,8 @@ def act(video_path, task=None, progress_start=0, progress_end=100, video_number=
             if idx % 50 == 0:
                 t_total = time.perf_counter() - t_frame_start
                 print(f"Frame {idx}: TOTAL={t_total*1000:.1f}ms")
+        
+        print(f">>> Processing complete: {frames_processed} frames processed out of {total_frames} total frames")
 
     # Get FPS from decord VideoReader
     fps = vr.get_avg_fps()
@@ -540,15 +548,13 @@ def act(video_path, task=None, progress_start=0, progress_end=100, video_number=
     cutoff = 1  # desired cutoff frequency of the filter, Hz
 
     # Get the filter coefficients so we can check its frequency response.
-    # b, a = butter_lowpass(cutoff, fs, order)
     kf_pos = KalmanFilter(transition_matrices=F, observation_matrices=[[1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0]])
     
-    # OPTIMIZATION: Estimate Kalman parameters ONCE using first landmark, then reuse for all
-    # This gives 5-8x speedup vs doing EM for each landmark
+    #Estimate Kalman parameters once using first landmark, then reuse for all
     first_landmark_ps = position_for_all_landmarks[chosen_landmarks[0]][2]
     first_measurements = np.asarray(first_landmark_ps)
-    kf_trained = kf_pos.em([m for m in first_measurements if not np.isnan(m[0])], n_iter=30)  # Reduced from 140 to 30
-
+    kf_trained = kf_pos.em([m for m in first_measurements if not np.isnan(m[0])], n_iter=30)  
+    
     final_answer = { }
 
     for landmark_idx, chosen_landmark in enumerate(chosen_landmarks):
@@ -563,12 +569,10 @@ def act(video_path, task=None, progress_start=0, progress_end=100, video_number=
         ys, prev_val, ps = position_for_all_landmarks[chosen_landmark]
 
         measurements = np.asarray(ps)
-        # Use pre-trained Kalman filter instead of training each time
+        # use pre-trained Kalman filter
         (smoothed_state_means, smoothed_state_covariances) = kf_trained.smooth(measurements)
         yf = butter_lowpass_filter(ys, cutoff, fs, order)
-
-        # plt.plot removed from loop - was causing slowdown
-
+  
         vel = [val[3] for val in smoothed_state_means]
         velf = butter_lowpass_filter(vel, cutoff, fs, order+1)
 
@@ -586,4 +590,5 @@ def act(video_path, task=None, progress_start=0, progress_end=100, video_number=
         output[str(k)] = {"pos": pos_list, "vel": vel_list}
 
     # Return structured, serializable result
-    return {"landmarks": output, "dt": float(dt), "confidences": [float(c) for c in confidences]}
+    # Include warmup_frames info for the client
+    return {"landmarks": output, "dt": float(dt), "confidences": [float(c) for c in confidences] } 
