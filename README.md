@@ -191,11 +191,9 @@ Training YOLOv8 on real climbing footage is expensive:
 - Easy to generate specialized scenarios
 
 ### Blender Pipeline
-
-![Render1](./resources/RENDER1.png)
-![Render2](./resources/RENDER2.png)
-![Render3](./resources/RENDER3.png)
-
+On the ground         |  Mid climb			| Near top
+:-------------------------:|:--------------------------:|:-------------------------:
+![Render1](./resources/RENDER2.png)  |  ![Render2](./resources/RENDER3.png) | ![Render3](./resources/RENDER6.png)
 
 **Blender 3D** is used to:
 
