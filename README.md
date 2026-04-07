@@ -1,6 +1,6 @@
 # Speed Analysis: Computer Vision-Based Speed Climbing Performance Tracking
 
-![Cluster2](./resources/Cluster2.png) ![Cluster2](./resources/Cluster3.png) ![Cluster2](./resources/Cluster4.png)
+![Cluster2](./resources/Cluster3.png)
 
 A computer vision system for analyzing speed climbing performances using deep learning, multi-lane tracking, and biomechanical analysis. The project combines **YOLOv8 object detection**, **MediaPipe pose estimation** and homography, **DBSCAN clustering**, and **Kalman filtering** to extract precise climber metrics from video footage.
 
@@ -150,6 +150,8 @@ climber_world = grip_world_pos + (climber_image - grip_image_pos) / scale
 
 ## Multi-Lane Tracking & Clustering (DBSCAN)
 
+![Cluster2](./resources/Cluster2.png)
+
 ### Challenge: Multiple Climbing Lanes
 
 Competition venues have **multiple lanes** (typically 2-3) where climbers compete simultaneously. The system must:
@@ -189,6 +191,11 @@ Training YOLOv8 on real climbing footage is expensive:
 - Easy to generate specialized scenarios
 
 ### Blender Pipeline
+
+![Render1](./resources/RENDER1.png)
+![Render2](./resources/RENDER2.png)
+![Render3](./resources/RENDER3.png)
+
 
 **Blender 3D** is used to:
 
