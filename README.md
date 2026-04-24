@@ -2,7 +2,7 @@
 
 ![Cluster2](./resources/Cluster3.png)
 
-A computer vision system for analyzing speed climbing performances using deep learning, multi-lane tracking, and biomechanical analysis. The project combines **YOLOv8 object detection**, **MediaPipe pose estimation** and homography, **DBSCAN clustering**, and **Kalman filtering** to extract precise climber metrics from video footage.
+A computer vision system for analyzing speed climbing performances using deep learning, multi-lane tracking, and biomechanical analysis. The project combines **YOLOv8 object detection**, **MediaPipe pose estimation** and homography, **DBSCAN clustering**, and **Kalman filtering** to extract precise climber metrics from offline video footage.
 
 **Language**: Python 3.10+ | **GPU Optimized**: CUDA 11.8+ | **License**: Open Source
 
@@ -12,7 +12,7 @@ A computer vision system for analyzing speed climbing performances using deep le
 
 **Speed climbing** is a sport where athletes compete on standardized climbing walls. This system automates performance analysis by:
 
--  **Detecting climbing holds** in real-time using a fine-tuned YOLOv8 model
+-  **Detecting climbing holds** from offline footage using a fine-tuned YOLOv8 model
 -  **Tracking climber pose** with MediaPipe for biomechanical insights
 -  **Mapping 2D image coordinates to 3D world space** using homography and PnP (Perspective-n-Point) transforms
 -  **Smoothing trajectories** with Kalman filtering and Butterworth low-pass filters
@@ -20,7 +20,7 @@ A computer vision system for analyzing speed climbing performances using deep le
 - **Processing multiple video streams** with async task queuing
 -  **Visualizing results** through an interactive web interface
 
-The system processes climbing videos in **20-30ms per frame on GPU (RTX 3090)** vs **380ms on CPU**, achieving **15-20x acceleration** with NVIDIA hardware.
+The system processes climbing videos in **20-30ms per frame on GPU (RTX 3090)** vs **380ms on CPU**, achieving **15-20x acceleration** with NVIDIA hardware using quantization.
 
 ---
 
@@ -93,7 +93,7 @@ The system processes climbing videos in **20-30ms per frame on GPU (RTX 3090)** 
 **Model**: MediaPipe Pose (heavy) - 33 body landmarks
 
 - **Landmarks**: Head, shoulders, elbows, wrists, hips, knees, ankles, toes
-- **Output**: (x, y, z, visibility) for each landmark
+- **Output**: (x, y, z, visibility) for each landmark, 2d skeleton is extracted for position estimation
 
 ### Coordinate Mapping: Homography & PnP
 
@@ -113,40 +113,16 @@ IFSC tournament walls have **21 standardized grip positions** with precise 3D lo
 """
 ```
 
-Grid: **3.0m wide × 15.0m tall** (standard IFSC wall)
+Grid: **3.0m wide × 15.0m tall** (standard IFSC wall), position is computed relative to the standard table base. 
 
-#### Homography Transform (≥4 grips detected)
+### Homography Transform and heuristics
+The processing pipeline employs different estimation techniques based on the amount of grips extracted by the previous stage.
+When 4+ grips detected: PnP is employed for its robustness to camera persepctive, handling tilted camera angles. 
+When 3 grips are detected, an affine transform is used which is less robust but can still handle scale and affine transforms. 
+When less than 3 grips are estimated, we use the average bounding box to compute the observed world scale and use a vector heuristic to compute a probable position. 
 
-When 4+ grips detected:
+#### Smoothing: Kalman Filter + Butterworth LPF, frequencies which are beyond usual human kinetics are filtered out
 
-**Advantages**: Robust to camera perspective, handles tilted camera angles
-
-#### Affine Transform (3 grips detected)
-
-When exactly 3 grips detected:
-
-```python
-H = cv2.getAffineTransform(source_points, destination_points)
-climber_world = A_inv @ (climber_image - translation)
-```
-
-#### Scale Estimation (1-2 grips detected)
-
-When <3 grips detected, use bounding box size for scale:
-
-```python
-# Grip diameter: ~0.35m
-GRIP_SIZE = 0.35
-scale = grip_box_size / GRIP_SIZE
-
-# Vector from grip to climber position, scaled
-climber_world = grip_world_pos + (climber_image - grip_image_pos) / scale
-```
-
-### Smoothing: Kalman Filter + Butterworth LPF
-
-
----
 
 ## Multi-Lane Tracking & Clustering (DBSCAN)
 
@@ -162,14 +138,12 @@ Competition venues have **multiple lanes** (typically 2-3) where climbers compet
 
 ### DBSCAN Clustering Solution
 
-[**DBSCAN** (Density-Based Spatial Clustering of Applications with Noise)](https://en.wikipedia.org/wiki/DBSCAN)
-
 **Why DBSCAN?**
 
 - No need to specify number of clusters (k-means requires this), can use the inferred grip size as parameter for clustering
 - Robust to noise (outlier detections)
 - Works with arbitrary cluster shapes
-- Handles multi-lane scenarios naturally
+- Handles multi-lane scenarios naturally, due to lanes being physically separated and grips belonging to the same lane being relatively close when projected in the x direction of the camera shot. 
 
 ---
 
