@@ -1,4 +1,4 @@
-# Speed Analysis: Computer Vision-Based Speed Climbing Performance Tracking
+# ClimbVision: Computer Vision-Based Speed Climbing Performance Tracking
 
 ![Cluster2](./resources/Cluster3.png)
 
