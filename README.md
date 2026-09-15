@@ -1,4 +1,4 @@
-# ClimbVision: Computer Vision-Based Speed Climbing Performance Tracking
+# ClimbVision: Computer Vision-Based Speed Climbing Multi-Lane Performance Tracking
 
 ![Cluster2](./resources/Cluster3.png)
 
@@ -6,23 +6,19 @@ A computer vision system for analyzing speed climbing performances using deep le
 
 **Language**: Python 3.10+ | **GPU Optimized**: CUDA 11.8+ | **License**: Open Source
 
----
-
 ##  Overview
 
 **Speed climbing** is a sport where athletes compete on standardized climbing walls. This system automates performance analysis by:
 
 -  **Detecting climbing holds** from offline footage using a fine-tuned YOLOv8 model
 -  **Tracking climber pose** with MediaPipe for biomechanical insights
--  **Mapping 2D image coordinates to 3D world space** using homography and PnP (Perspective-n-Point) transforms
--  **Smoothing trajectories** with Kalman filtering and Butterworth low-pass filters
+-  **Mapping 2D image coordinates to 2d wall space** using homography and PnP (Perspective-n-Point) transforms (depending on the amount of detected references)
+-  **Smoothing trajectories** with Kalman filtering
 -  **Computing velocity profiles** for speed and acceleration analysis
-- **Processing multiple video streams** with async task queuing
 -  **Visualizing results** through an interactive web interface
 
-The system processes climbing videos in **20-30ms per frame on GPU (RTX 3090)** vs **380ms on CPU**, achieving **15-20x acceleration** with NVIDIA hardware using quantization.
+The system was tested processing climbing videos in **20-30ms per frame on GPU (RTX 3090)** vs **380ms on CPU** using reduced precision for computation.
 
----
 
 ##  Architecture
 
@@ -87,17 +83,17 @@ The system processes climbing videos in **20-30ms per frame on GPU (RTX 3090)** 
 
 ###  YOLOv8 Object Detection
 
-**Model**: YOLOv8 (You Only Look Once v8) - Fine-tuned on climbing holds
+**Model**: YOLOv8 Fine-tuned on climbing holds
 ### Pose Estimation: MediaPipe Pose
 
 **Model**: MediaPipe Pose (heavy) - 33 body landmarks
 
 - **Landmarks**: Head, shoulders, elbows, wrists, hips, knees, ankles, toes
-- **Output**: (x, y, z, visibility) for each landmark, 2d skeleton is extracted for position estimation
+- **Output**: (x, y, depth, visibility) for each landmark, 2d skeleton is extracted for position estimation
 
 ### Coordinate Mapping: Homography & PnP
 
-**Solution**: Transform 2D image coordinates → 3D world coordinates
+**Solution**: Transform 2D image coordinates into  2d wall coordinates with the competition standard reference grids
 
 #### Known Grip Positions (Ground Truth)
 
@@ -113,7 +109,7 @@ IFSC tournament walls have **21 standardized grip positions** with precise 3D lo
 """
 ```
 
-Grid: **3.0m wide × 15.0m tall** (standard IFSC wall), position is computed relative to the standard table base. 
+Grid: **3.0m wide × 15.0m tall** (standard IFSC wall), position is computed relative to the standard table base. A full description is available on the IFSC website. 
 
 ### Homography Transform and heuristics
 The processing pipeline employs different estimation techniques based on the amount of grips extracted by the previous stage.
@@ -124,7 +120,7 @@ When less than 3 grips are estimated, we use the average bounding box to compute
 #### Smoothing: Kalman Filter + Butterworth LPF, frequencies which are beyond usual human kinetics are filtered out
 
 
-## Multi-Lane Tracking & Clustering (DBSCAN)
+## Multi-Lane Tracking & Clustering (DBSCAN) (EXPERIMENTAL)
 
 ![Cluster2](./resources/Cluster2.png)
 
@@ -138,16 +134,13 @@ Competition venues have **multiple lanes** (typically 2-3) where climbers compet
 
 ### DBSCAN Clustering Solution
 
-**Why DBSCAN?**
-
-- No need to specify number of clusters (k-means requires this), can use the inferred grip size as parameter for clustering
+With dbscan: 
+- No need to specify number of clusters and we can use the inferred grip size as parameter for clustering
 - Robust to noise (outlier detections)
 - Works with arbitrary cluster shapes
 - Handles multi-lane scenarios naturally, due to lanes being physically separated and grips belonging to the same lane being relatively close when projected in the x direction of the camera shot. 
 
----
-
-##  Synthetic Data Generation & Validation (Blender)
+##  Synthetic Data Generation & Validation (Blender) (EXPERIMENTAL)
 
 ### Why Synthetic Data?
 
@@ -159,7 +152,7 @@ Training YOLOv8 on real climbing footage is expensive:
 
 **Synthetic advantages**:
 
-- Perfect annotations (automatic bounding boxes)
+- Perfect annotations (automatic bounding boxes and skeletons)
 - Unlimited variations (camera angles, lighting, holds)
 - Repeatable, deterministic
 - Easy to generate specialized scenarios
