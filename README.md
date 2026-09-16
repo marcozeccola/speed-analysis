@@ -26,7 +26,7 @@ The system was tested processing climbing videos in **20-30ms per frame on GPU (
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Web UI (React/HTML)                      │
+│                    Web UI (HTML) 		                      │
 │              analysis_viewer.html - Chart.js                │
 └──────────────────┬──────────────────────────────────────────┘
                    │ HTTP/WebSocket
