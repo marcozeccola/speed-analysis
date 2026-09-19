@@ -39,27 +39,21 @@ The system was tested processing climbing videos in **20-30ms per frame on GPU (
 │            Celery Worker Pool                               │
 │     server/tasks.py - Analysis Pipeline                     │
 └──────────────────-───────────┬──────────────────────────────┘
-			                   │
-			    ┌──────────────┼──────────────┐
-			    │              │              │
+			    ┌──────────────┼─────────────┐
 			┌───▼──┐  ┌───────▼────┐  ┌──────▼───┐
 			│YOLO8 │  │ MediaPipe  │  │ Decord   │
 			│Detect│  │ Pose Est.  │  │ Video IO │
 			└───┬──┘  └───────┬────┘  └──────┬───┘
-			    │             │              │
 			    └─────────────┼──────────────┘
-			                  │
 			        ┌─────────▼──────────┐
 			        │ PnP Homography     │
 			        │ Coordinate Mapping │
 			        └─────────┬──────────┘
-			                  │
 			        ┌─────────▼──────────┐
 			        │ Kalman Filter      │
 			        │ Butterworth LPF    │
 			        │ Smoothing          │
 			        └─────────┬──────────┘
-			                  │
 			        ┌─────────▼──────────┐
 			        │ JSON Results       │
 			        │ Metrics Export     │
